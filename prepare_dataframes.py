@@ -32,9 +32,14 @@ def process_files_to_dataframe(file_paths, json_data, lum=59830, is_dy=False, ad
     return combined_df
 
 def split_and_save_dataframe(df, output_dir, label, n_chunks=5):
-    chunk_size = len(df) // n_chunks
+    total_len = len(df)
+    chunk_size = total_len // n_chunks + (total_len % n_chunks > 0)  # 计算每个块的大小
+    
     for i in range(n_chunks):
-        chunk_df = df[i*chunk_size : (i+1)*chunk_size if i < n_chunks - 1 else None]
+        chunk_start = i * chunk_size
+        # 确保最后一个块能包含所有剩余的行
+        chunk_end = min((i + 1) * chunk_size, total_len)
+        chunk_df = df.iloc[chunk_start:chunk_end]
         chunk_df.to_pickle(os.path.join(output_dir, f"{label}_chunk{i+1}.pkl"))
 
 
@@ -87,7 +92,6 @@ Real_Data_list = [
 ]
 
 
-
 output_dir_base = '/vols/cms/yl13923/masterproject'
 
 # Process and save each category
@@ -108,23 +112,26 @@ real_data_paths = [os.path.join(output_dir_base, f'Real_Data_chunk{i+1}.pkl') fo
 # print("dy_paths:", dy_paths)
 # print("real_data_paths:", real_data_paths)
 
-def load_and_combine_pkl(file_paths):
-    """加载多个Pickle文件并将它们合并为一个DataFrame"""
-    df_list = [pd.read_pickle(path) for path in file_paths]
-    combined_df = pd.concat(df_list, ignore_index=True)
-    return combined_df
+# 定义一个函数来加载和合并指定的chunks
+def load_and_concat_chunks(chunk_paths1, chunk_paths2):
+    combined_chunks = []
+    for path1, path2 in zip(chunk_paths1, chunk_paths2):
+        df1 = pd.read_pickle(path1)
+        df2 = pd.read_pickle(path2)
+        combined_chunk = pd.concat([df1, df2], ignore_index=True)
+        combined_chunks.append(combined_chunk)
+    return combined_chunks
 
-none_dy_df = load_and_combine_pkl(none_dy_paths)
-dy_df = load_and_combine_pkl(dy_paths)
-real_data_df = load_and_combine_pkl(real_data_paths)
+# 定义保存chunks的函数
+def save_chunks(chunks, output_dir, label):
+    for i, chunk in enumerate(chunks):
+        chunk.to_pickle(os.path.join(output_dir, f"{label}_chunk{i+1}.pkl"))
 
-# 合并实际数据和非DY模拟数据为“data”，DY保留为“MC”
-data_df = pd.concat([real_data_df, none_dy_df], ignore_index=True)
-mc_df = dy_df
+# 加载并合并real data和non_dy的对应chunks
+data_chunks = load_and_concat_chunks(real_data_paths, none_dy_paths)
 
-# 分块并保存混合样本
-split_and_save_dataframe(data_df, output_dir_base, 'data', n_chunks=5)
-split_and_save_dataframe(mc_df, output_dir_base, 'MC', n_chunks=5)
+# 保存合并后的数据chunks
+save_chunks(data_chunks, output_dir_base, 'data')
 
 
 def label_and_combine_chunks(data_chunk_path, mc_chunk_path, label_data=1, label_mc=0):
@@ -144,8 +151,16 @@ def label_and_combine_chunks(data_chunk_path, mc_chunk_path, label_data=1, label
     
     return shuffled_chunk
 
-data_chunk_paths = ['/vols/cms/yl13923/masterproject/data_chunk1.pkl', '/vols/cms/yl13923/masterproject/data_chunk2.pkl', '/vols/cms/yl13923/masterproject/data_chunk3.pkl', '/vols/cms/yl13923/masterproject/data_chunk4.pkl', '/vols/cms/yl13923/masterproject/data_chunk5.pkl']
-mc_chunk_paths = ['/vols/cms/yl13923/masterproject/MC_chunk1.pkl', '/vols/cms/yl13923/masterproject/MC_chunk2.pkl', '/vols/cms/yl13923/masterproject/MC_chunk3.pkl', '/vols/cms/yl13923/masterproject/MC_chunk4.pkl', '/vols/cms/yl13923/masterproject/MC_chunk5.pkl']
+data_chunk_paths = ['/vols/cms/yl13923/masterproject/data_chunk1.pkl',
+                     '/vols/cms/yl13923/masterproject/data_chunk2.pkl', 
+                     '/vols/cms/yl13923/masterproject/data_chunk3.pkl', 
+                     '/vols/cms/yl13923/masterproject/data_chunk4.pkl', 
+                     '/vols/cms/yl13923/masterproject/data_chunk5.pkl']
+mc_chunk_paths = ['/vols/cms/yl13923/masterproject/DY_chunk1.pkl', 
+                  '/vols/cms/yl13923/masterproject/DY_chunk2.pkl', 
+                  '/vols/cms/yl13923/masterproject/DY_chunk3.pkl', 
+                  '/vols/cms/yl13923/masterproject/DY_chunk4.pkl', 
+                  '/vols/cms/yl13923/masterproject/DY_chunk5.pkl']
 
 for i, (data_path, mc_path) in enumerate(zip(data_chunk_paths, mc_chunk_paths), start=1):
     # 处理每对数据和MC块，添加标签，合并并随机打乱
