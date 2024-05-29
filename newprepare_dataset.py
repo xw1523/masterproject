@@ -3,6 +3,7 @@ import pandas as pd
 import uproot
 import numpy as np
 import json
+import joblib  # Import joblib
 
 def read_json(file_path):
     with open(file_path) as f:
@@ -102,9 +103,8 @@ save_chunks(data_chunks, output_dir_base, 'data')
 
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from keras.callbacks import EarlyStopping
-
 
 def process_and_save_chunk(data_chunk_path, mc_chunk_path, output_dir, chunk_index):
     # 加载数据块，为其添加标签
@@ -126,11 +126,15 @@ def process_and_save_chunk(data_chunk_path, mc_chunk_path, output_dir, chunk_ind
         X, y, weights, test_size=0.95, random_state=42, stratify=y.values
     )
     
-    # 应用MinMaxScaler进行缩放
-    scaler = MinMaxScaler()
+    # 进行缩放
+    scaler=StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
-    
+
+    # Save the scaler object
+    scaler_filename = os.path.join(output_dir, f'scaler_{chunk_index}.pkl')
+    joblib.dump(scaler, scaler_filename)
+     
     # 将训练集和测试集保存为Pandas DataFrame
     train_df = pd.DataFrame(X_train_scaled, columns=['Z_mass', 'Z_pt'])
     train_df['label'] = y_train.reset_index(drop=True)
