@@ -1,56 +1,75 @@
 import json
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, BatchNormalization
+from keras.optimizers import Adam
+from keras.callbacks import EarlyStopping
 from dataloader import get_generator  
 
 train_paths = [
-     '/vols/cms/yl13923/masterproject/data_chunks/train_chunk_1.pkl',
-     '/vols/cms/yl13923/masterproject/data_chunks/train_chunk_2.pkl',
-     '/vols/cms/yl13923/masterproject/data_chunks/train_chunk_3.pkl',
-     '/vols/cms/yl13923/masterproject/data_chunks/train_chunk_4.pkl',
-     '/vols/cms/yl13923/masterproject/data_chunks/train_chunk_5.pkl'
+        '/vols/cms/yl13923/masterproject/final_chunks/train_chunks/train_chunk_1.pkl',
+        '/vols/cms/yl13923/masterproject/final_chunks/train_chunks/train_chunk_2.pkl',
+        # '/vols/cms/yl13923/masterproject/final_chunks/train_chunks/train_chunk_3.pkl',
+        # '/vols/cms/yl13923/masterproject/final_chunks/train_chunks/train_chunk_4.pkl', 
+        # '/vols/cms/yl13923/masterproject/final_chunks/train_chunks/train_chunk_5.pkl',
+        # '/vols/cms/yl13923/masterproject/final_chunks/train_chunks/train_chunk_6.pkl',
+        # '/vols/cms/yl13923/masterproject/final_chunks/train_chunks/train_chunk_7.pkl',
+        # '/vols/cms/yl13923/masterproject/final_chunks/train_chunks/train_chunk_8.pkl',
+        # '/vols/cms/yl13923/masterproject/final_chunks/train_chunks/train_chunk_9.pkl',
+        # '/vols/cms/yl13923/masterproject/final_chunks/train_chunks/train_chunk_10.pkl'
 ]
-               
 val_paths = [
-     '/vols/cms/yl13923/masterproject/data_chunks/val_chunk_1.pkl',
-     '/vols/cms/yl13923/masterproject/data_chunks/val_chunk_2.pkl',
-     '/vols/cms/yl13923/masterproject/data_chunks/val_chunk_3.pkl',
-     '/vols/cms/yl13923/masterproject/data_chunks/val_chunk_4.pkl',
-     '/vols/cms/yl13923/masterproject/data_chunks/val_chunk_5.pkl'
+     '/vols/cms/yl13923/masterproject/final_chunks/val_chunks/val_chunk_1.pkl',
+     '/vols/cms/yl13923/masterproject/final_chunks/val_chunks/val_chunk_2.pkl',
+    #  '/vols/cms/yl13923/masterproject/final_chunks/val_chunks/val_chunk_3.pkl',
+    #  '/vols/cms/yl13923/masterproject/final_chunks/val_chunks/val_chunk_4.pkl',
+    #  '/vols/cms/yl13923/masterproject/final_chunks/val_chunks/val_chunk_5.pkl',
+    #  '/vols/cms/yl13923/masterproject/final_chunks/val_chunks/val_chunk_6.pkl',
+    #  '/vols/cms/yl13923/masterproject/final_chunks/val_chunks/val_chunk_7.pkl',
+    #  '/vols/cms/yl13923/masterproject/final_chunks/val_chunks/val_chunk_8.pkl',
+    #  '/vols/cms/yl13923/masterproject/final_chunks/val_chunks/val_chunk_9.pkl',
+    #  '/vols/cms/yl13923/masterproject/final_chunks/val_chunks/val_chunk_10.pkl'
 ]
 
 data_train = tf.data.Dataset.from_generator(
     get_generator(train_paths),
     output_signature=(
-        tf.TensorSpec(shape=(2,), dtype=tf.float32),
+        tf.TensorSpec(shape=(13,), dtype=tf.float32),
         tf.TensorSpec(shape=(), dtype=tf.float32),
         tf.TensorSpec(shape=(), dtype=tf.float32)
     )
-).batch(150)
+).batch(50000)
 
 data_val = tf.data.Dataset.from_generator(
     get_generator(val_paths),
     output_signature=(
-        tf.TensorSpec(shape=(2,), dtype=tf.float32),
+        tf.TensorSpec(shape=(13,), dtype=tf.float32),
         tf.TensorSpec(shape=(), dtype=tf.float32),
         tf.TensorSpec(shape=(), dtype=tf.float32)
     )
-).batch(150)
+).batch(50000)
 
 def simple_model(input_dimension):
     model = Sequential()
     model.add(Dense(input_dimension, input_dim=input_dimension, kernel_initializer='normal', activation='relu'))
-    model.add(Dense(input_dimension*2, kernel_initializer='normal', activation='relu'))
+    model.add(BatchNormalization()),
+    model.add(Dense(64, kernel_initializer='normal', activation='relu'))
+    model.add(BatchNormalization()),
+    model.add(Dense(32, kernel_initializer='normal', activation='relu')) 
+    model.add(BatchNormalization()),   
+    model.add(Dense(20, kernel_initializer='normal', activation='relu'))
+    model.add(BatchNormalization()), 
+    model.add(Dense(10, kernel_initializer='normal', activation='relu'))
+    model.add(BatchNormalization()),       
     model.add(Dense(1, activation="sigmoid"))
 
-    optimizer = Adam(learning_rate=0.01)
+    optimizer = Adam(learning_rate=0.0001)
     model.compile(loss='binary_crossentropy', optimizer=optimizer)
+    model.summary()
     return model
 
-model = simple_model(2)
+model = simple_model(13)
 
 early_stop = EarlyStopping(monitor='val_loss', patience=3)
 
@@ -58,13 +77,15 @@ history = model.fit(
     data_train, 
     validation_data=data_val,
     epochs=10, 
+    # steps_per_epoch= 178,
+    # validation_steps= 1604,
     callbacks=[early_stop]
 )
 
 # save model
-model_save_path = '/vols/cms/yl13923/masterproject/my_model.h5'
+model_save_path = '/vols/cms/yl13923/masterproject/my_model_U1U2.h5'
 model.save(model_save_path)
 
-history_save_path = '/vols/cms/yl13923/masterproject/train_history.json'
+history_save_path = '/vols/cms/yl13923/masterproject/train_history_U1U2.json'
 with open(history_save_path, 'w') as f:
     json.dump(history.history, f)
